@@ -1,0 +1,109 @@
+---
+title: "Project: Getting and Cleaning Data, Coursera Data Science Specialization"
+author: "Sandeep Tammu"
+date: "21 October 2015"
+output: html_document
+---
+
+First, we are going to download the data, extract it. Since I have already done that, I'm not going to run it again.
+
+
+```r
+fileUrl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+download.file(url = fileUrl, destfile = "./UCIHAR.zip")
+unzip("./UCIHAR.zip")
+```
+
+## 1. Merges the training and the test sets to create one data set
+
+The code is mostly self explanatory, I'll only use the documentation for more important things.
+
+
+```r
+train <- read.table("./UCI HAR Dataset/train/X_train.txt")
+test <- read.table("./UCI HAR Dataset/test/X_test.txt")
+merged.df <- rbind(train, test)
+```
+
+## 2. Extracts only the measurements on the mean and standard deviation for each measurement. 
+
+The apply function is used to obtain the column standard deviations.
+
+
+```r
+means <- colMeans(merged.df, na.rm = TRUE)
+sds <- apply(merged.df, 2, sd)
+```
+
+## 3. Uses descriptive activity names to name the activities in the data set
+
+I'm going to read the responses from the text file and merge them together.
+
+
+```r
+response.train <- read.table("./UCI HAR Dataset/train/y_train.txt")
+response.test <- read.table("./UCI HAR Dataset/test/y_test.txt")
+activity.merged <- rbind(response.train, response.test)
+```
+
+Next, we are going to define a function that translates the numbers into something more descriptive.
+
+
+```r
+labeler <- function(x) {
+  if(x==1) return("WALKING")
+  if (x==2) return("WALKING_UPSTAIRS")
+  if (x==3) return("WALKING_DOWNSTAIRS")
+  if (x==4) return("SITTING")
+  if (x==5) return("STANDING")
+  if (x==6) return("LAYING")
+}
+```
+
+We are going to apply the newly written function to our activity.merged, and merge everything together.
+
+
+```r
+activity.labeled <- apply(activity.merged, 1, labeler)
+merged.df$activity.name = activity.labeled
+```
+
+Now, our data frame looks more descrptive.
+
+## 4. Appropriately labels the data set with descriptive variable names
+
+I have read the features names from the text file and added to our data frame.
+
+
+```r
+names.df <- read.table("./UCI HAR Dataset/features.txt")
+listnames <- as.character(names.df$V2)
+names(merged.df) <- c(listnames, "ActivityName")
+```
+
+## 5. From the data set in step 4, creates a second, independent tidy data  set with the average of each variable for each activity and each subject.
+
+I'm trying to read the responses into the dataframe.
+
+
+```r
+subject.train <- read.table("./UCI HAR Dataset/train/subject_train.txt")
+subject.test <- read.table("./UCI HAR Dataset/test/subject_test.txt")
+merged.subject <- rbind(subject.train, subject.test)
+merged.df$SubjectNumber <- merged.subject
+```
+
+Now, we have all the data within one merged.df dataframe. Great, let's just aggregate them right away. Oh, I have incorporated everything inside.
+
+
+```r
+ave.aggregate.activity <- aggregate(merged.df, FUN= mean, by= list(merged.df$ActivityName),
+                                     formula= .~ ActivityName, na.rm = TRUE)
+ave.aggregate.subject <-  aggregate(merged.df, FUN= mean, by= merged.df$SubjectNumber, formula = . ~ SubjectNumber, na.rm = TRUE)
+
+colnames(ave.aggregate.activity)[1] <- "GroupType"
+colnames(ave.aggregate.subject)[1] <- "SubjectNumber"
+
+write.table(ave.aggregate.activity, file = "./avg.activity", row.names = FALSE)
+write.table(ave.aggregate.subject, file = "./avg.subject", row.names = FALSE)
+```
